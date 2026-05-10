@@ -1,3 +1,5 @@
+import { buildLocationSummary } from './locationInsights.js'
+
 function digitalPresenceScore(business) {
   let score = 0
   if (business.website) score += 3
@@ -198,6 +200,9 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
         digital_presence_score: digitalPresenceScore(b),
         rating: b.rating,
         ratings_count: b.ratings_count ?? b.reviews_count,
+        data_source: b.source || 'unknown',
+        enrichment_status: b.status || 'unknown',
+        facade_notes: b.facade?.description || b.notes || null,
         pain_points: ins.pain_points || fallback.pain_points,
         growth_signals: ins.growth_signals || fallback.growth_signals,
         risk_flags: ins.risk_flags || fallback.risk_flags,
@@ -264,6 +269,14 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
       stats: queryContext.stats ?? null,
     },
     market_summary: market,
+    location_summary: buildLocationSummary(scoredBusinesses, {
+      query: queryContext.query,
+      stats: queryContext.stats,
+      category: queryContext.category,
+      zone: queryContext.zone,
+      city: queryContext.city,
+      country: queryContext.country,
+    }),
     ranked_prospects: ranked,
     non_viable: nonViable,
   }

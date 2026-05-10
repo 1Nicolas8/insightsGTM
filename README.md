@@ -28,7 +28,8 @@ src/
 ├── benchmarks.js     # rangos ACV/ACL/CAC por categoría
 ├── toneResolver.js   # tono / canal / mejor horario
 ├── aiInsights.js     # llamada a DeepSeek + extracción robusta de JSON
-├── reportBuilder.js  # JSON final + ranking + market_summary
+├── locationInsights.js # hotspots geográficos (Haversine + clustering) y bounds
+├── reportBuilder.js  # JSON final + ranking + market_summary + location_summary
 └── schemas.js        # schemas Zod del input
 ```
 
@@ -130,6 +131,22 @@ npm start
     "top_zones": ["Kennedy"],
     "recommended_approach": "presencial"
   },
+  "location_summary": {
+    "query": { "category": "barbería", "zone": "Kennedy", "city": "Bogotá", "country": "Colombia", "center": { "latitude": 4.630387, "longitude": -74.1376756, "radiusMeters": 1500 } },
+    "stats": { "existingReceived": 1, "placesFound": 20, "dedupedAgainstExisting": 1, "newlyDiscovered": 5, "facadeDescribed": 5, "facadeSkipped": 1 },
+    "coordinate_coverage": { "total_businesses": 6, "with_coordinates": 6, "coverage_ratio": 1 },
+    "coordinate_bounds": { "north": 4.643557, "south": 4.615518, "east": -74.127298, "west": -74.152288 },
+    "hotspots": [
+      {
+        "rank": 1, "label": "Hotspot 1 - Kennedy",
+        "center": { "latitude": 4.621457, "longitude": -74.128722 },
+        "radius_meters": 500, "business_count": 2, "avg_icp_score": 73.5,
+        "dominant_zone": "Kennedy", "dominant_category": "barbería",
+        "top_businesses": [{ "name": "BARBER TRAINING BOGOTÁ", "icp_score": 77, "status": "discovered", "source": "google_maps_scrape" }],
+        "opportunity": "2 comercios de barbería concentrados en Kennedy, con score ICP promedio de 73.5."
+      }
+    ]
+  },
   "ranked_prospects": [
     {
       "rank": 1,
@@ -197,7 +214,12 @@ npm start
 7. **Build report** — `buildReport` ordena por `icp_score`, asigna `rank`, calcula `digital_presence_score`, `estimated_size`, `metric_confidence`. Garantiza dos invariantes:
    - `estimated_ltv_usd === acv × acl`
    - `opening_line` contiene el nombre del negocio
-   También construye `market_summary` (top categorías, top zonas, canal recomendado, descripción del mercado, promedios LTV/CAC/ICP) y `non_viable` con `reason` por umbral.
+   También construye `market_summary` (top categorías, top zonas, canal recomendado, descripción del mercado, promedios LTV/CAC/ICP), `location_summary` (ver siguiente punto) y `non_viable` con `reason` por umbral.
+8. **Location summary** — `locationInsights.js` calcula sobre los businesses con `latitude`/`longitude`:
+   - `coordinate_coverage` — cuántos prospectos tienen geolocalización.
+   - `coordinate_bounds` — bounding box (north/south/east/west).
+   - `hotspots` — clustering greedy por distancia Haversine usando como radio una fracción del `query.center.radiusMeters` (entre 250 y 700 m). Cada hotspot trae `center`, `business_count`, `avg_icp_score`, `dominant_zone`, `dominant_category`, top 5 negocios y una frase resumen de oportunidad.
+   - `query` y `stats` se devuelven aquí también como passthrough listos para el frontend.
 
 Regla "menos de 3 viables → incluir todos sin importar el score" implementada en `reportBuilder.js`.
 
