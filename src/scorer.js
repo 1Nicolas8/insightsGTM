@@ -23,15 +23,23 @@ function hasAnySocial(business) {
 
 function sizeScore(business) {
   const reviews = business.reviews_count ?? business.ratings_count ?? 0
+
+  /** Umbrales ajustados al mercado LATAM donde 50+ reseñas ya indica negocio establecido. */
   let score
-  if (reviews >= 500) score = 20
-  else if (reviews >= 100) score = 14
-  else if (reviews >= 20) score = 7
+  if (reviews >= 200) score = 20
+  else if (reviews >= 50) score = 14
+  else if (reviews >= 15) score = 7
   else score = 2
 
   if (business.verified === true) score += 2
   if ((business.price_level ?? 0) >= 3) score += 3
-  if ((business.photos_count ?? 0) > 20) score += 1
+  if ((business.photos_count ?? 0) > 10) score += 1
+
+  /** Fachada descrita por IA = negocio encontrable y con identidad visual. */
+  if (business.notes && typeof business.notes === 'string' && business.notes.length > 20) score += 2
+
+  /** Google Maps URL presente = indexado correctamente. */
+  if (business.google_maps_url) score += 1
 
   if (business.facade && Array.isArray(business.facade.features) && business.facade.features.length >= 5) {
     score += 1
@@ -57,6 +65,9 @@ function intentScore(business) {
   if (business.whatsapp && !business.email) score += 1
   if (business.google_maps_url) score += 1
 
+  /** Fachada descrita por visión IA = presencia física real y verificable. */
+  if (business.notes && typeof business.notes === 'string' && business.notes.length > 20) score += 2
+
   return Math.max(0, Math.min(25, score))
 }
 
@@ -70,7 +81,23 @@ function fitScore(business, productContext) {
 
   const targetFull = normalize(productContext.target_industry)
   if (catNorm && (targetFull === catNorm || targetFull.includes(catNorm) || catNorm.includes(targetFull))) {
-    return 25
+    /**
+     * Hay match de categoría pero todos los negocios comparten la misma, así que
+     * diferenciamos dentro del rango 15–25 usando señales secundarias reales.
+     */
+    let fitBonus = 15
+    /** Fachada descrita por visión = negocio con identidad visual clara. */
+    if (business.notes && typeof business.notes === 'string' && business.notes.length > 20) fitBonus += 4
+    /** Reseñas suficientes = negocio activo con clientes. */
+    const reviews = business.reviews_count ?? business.ratings_count ?? 0
+    if (reviews >= 50) fitBonus += 3
+    else if (reviews >= 15) fitBonus += 2
+    /** Rating alto = calidad percibida alta. */
+    const r = business.rating
+    if (r >= 4.7) fitBonus += 3
+    else if (r >= 4.3) fitBonus += 2
+    else if (r >= 4.0) fitBonus += 1
+    return Math.min(25, fitBonus)
   }
 
   let matches = 0
