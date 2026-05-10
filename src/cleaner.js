@@ -56,16 +56,59 @@ function parseFacade(notes) {
   return { description, features }
 }
 
+function pickFirst(obj, keys) {
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') return obj[key]
+  }
+  return null
+}
+
 export function cleanBusiness(business) {
   if (!business || typeof business !== 'object') return null
 
   const legacySocial = business.social_media || {}
-  const instagram = safeString(business.instagram ?? legacySocial.instagram)
-  const facebook = safeString(business.facebook ?? legacySocial.facebook)
-  const linkedin = safeString(business.linkedin ?? legacySocial.linkedin)
-  const tiktok = safeString(business.tiktok ?? legacySocial.tiktok)
+  const instagram = safeString(
+    pickFirst(business, ['instagram', 'instagram_url', 'instagramUrl', 'ig']) ?? legacySocial.instagram
+  )
+  const facebook = safeString(
+    pickFirst(business, ['facebook', 'facebook_url', 'facebookUrl']) ?? legacySocial.facebook
+  )
+  const linkedin = safeString(
+    pickFirst(business, ['linkedin', 'linkedin_url', 'linkedinUrl']) ?? legacySocial.linkedin
+  )
+  const tiktok = safeString(
+    pickFirst(business, ['tiktok', 'tiktok_url', 'tiktokUrl']) ?? legacySocial.tiktok
+  )
+  const websiteValue = normalizeWebsite(
+    pickFirst(business, ['website', 'website_url', 'websiteUrl', 'site', 'url'])
+  )
+  const hoursValue = safeString(pickFirst(business, ['hours', 'opening_hours', 'openingHours']))
 
-  const ratingsCount = toInt(business.ratings_count ?? business.reviews_count)
+  const ratingsCount = toInt(
+    pickFirst(business, [
+      'ratings_count',
+      'reviews_count',
+      'rating_count',
+      'reviews',
+      'total_reviews',
+      'user_ratings_total',
+      'reviewsCount',
+      'ratingsCount',
+      'reviewCount',
+    ])
+  )
+  const ratingValue = toFloat(
+    pickFirst(business, ['rating', 'avg_rating', 'average_rating', 'stars', 'score', 'google_rating'])
+  )
+  const priceLevel = toInt(
+    pickFirst(business, ['price_level', 'priceLevel', 'pricing_level', 'price_tier'])
+  )
+  const photosCount = toInt(
+    pickFirst(business, ['photos_count', 'photosCount', 'photos', 'images_count', 'image_count'])
+  )
+  const verified = toBool(
+    pickFirst(business, ['verified', 'is_verified', 'isVerified', 'verified_profile'])
+  )
   const facade = parseFacade(business.notes)
 
   const cleaned = {
@@ -81,20 +124,20 @@ export function cleanBusiness(business) {
     phone: normalizePhone(business.phone),
     whatsapp: normalizePhone(business.whatsapp),
     email: safeString(business.email),
-    website: normalizeWebsite(business.website),
+    website: websiteValue,
     instagram,
     facebook,
     linkedin,
     tiktok,
     google_place_id: safeString(business.google_place_id),
     google_maps_url: safeString(business.google_maps_url),
-    rating: toFloat(business.rating),
+    rating: ratingValue,
     ratings_count: ratingsCount,
     reviews_count: ratingsCount,
-    price_level: toInt(business.price_level),
-    photos_count: toInt(business.photos_count),
-    hours: safeString(business.hours),
-    verified: toBool(business.verified),
+    price_level: priceLevel,
+    photos_count: photosCount,
+    hours: hoursValue,
+    verified,
     source: safeString(business.source),
     status: safeString(business.status),
     notes: safeString(business.notes),
