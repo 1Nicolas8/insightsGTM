@@ -43,10 +43,16 @@ app.post('/analyze', async (req, res) => {
     })
   }
 
-  if (!parsed.businesses || parsed.businesses.length === 0) {
+  const leads = Array.isArray(parsed.existing_businesses)
+    ? parsed.existing_businesses
+    : Array.isArray(parsed.businesses)
+    ? parsed.businesses
+    : []
+
+  if (!leads.length) {
     return res.status(400).json({
       error: 'EMPTY_BUSINESSES',
-      message: 'El array businesses está vacío',
+      message: 'El array existing_businesses (o businesses) está vacío',
     })
   }
 

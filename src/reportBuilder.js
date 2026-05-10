@@ -1,16 +1,23 @@
+import { buildLocationSummary } from './locationInsights.js'
+
 function digitalPresenceScore(business) {
   let score = 0
   if (business.website) score += 3
   const sm = business.social_media || {}
-  if (sm.instagram || sm.facebook || sm.linkedin) score += 2
+  const anySocial =
+    business.instagram || business.facebook || business.linkedin || business.tiktok ||
+    sm.instagram || sm.facebook || sm.linkedin || sm.tiktok
+  if (anySocial) score += 2
   if ((business.photos_count ?? 0) > 10) score += 2
   if (business.email) score += 2
   if (business.verified === true) score += 1
+  if (business.whatsapp) score += 1
+  if (business.google_maps_url) score += 1
   return Math.max(0, Math.min(10, score))
 }
 
 function estimateSize(business) {
-  const reviews = business.reviews_count ?? 0
+  const reviews = business.reviews_count ?? business.ratings_count ?? 0
   if (reviews >= 500 || business.price_level === 4) return 'LARGE'
   if (reviews >= 100) return 'MID'
   if (reviews >= 20) return 'SMALL'
@@ -20,7 +27,8 @@ function estimateSize(business) {
 function metricConfidence(business) {
   let count = 0
   if (business.rating !== null && business.rating !== undefined) count++
-  if (business.reviews_count !== null && business.reviews_count !== undefined) count++
+  const reviews = business.reviews_count ?? business.ratings_count
+  if (reviews !== null && reviews !== undefined) count++
   if (business.website) count++
   if (count === 3) return 'HIGH'
   if (count === 2) return 'MED'
@@ -40,17 +48,17 @@ function ensureOpeningLineHasName(opening, businessName, fallback) {
   return `${opening.replace(/\.$/, '')}. (sobre ${businessName})`
 }
 
-function topCategories(businesses, n = 3) {
+function topByCount(items, n) {
   const counts = new Map()
-  for (const b of businesses) {
-    const c = (b.category || '').trim()
-    if (!c) continue
-    counts.set(c, (counts.get(c) || 0) + 1)
+  for (const it of items) {
+    const v = (it || '').trim()
+    if (!v) continue
+    counts.set(v, (counts.get(v) || 0) + 1)
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, n)
-    .map(([c]) => c)
+    .map(([v]) => v)
 }
 
 function avg(arr) {
@@ -65,14 +73,15 @@ function avg2(arr) {
   return Math.round((sum / arr.length) * 100) / 100
 }
 
-function describeOpportunity({ viableCount, totalCount, topCats, avgLtv }) {
+function describeOpportunity({ viableCount, totalCount, topCats, topZones, avgLtv }) {
   if (!totalCount) return 'No se procesaron negocios para evaluar la oportunidad de mercado.'
   if (!viableCount) {
     return `Se analizaron ${totalCount} negocios pero ninguno alcanza el umbral de viabilidad para este producto.`
   }
   const pct = Math.round((viableCount / totalCount) * 100)
-  const topStr = topCats.length ? topCats.slice(0, 2).join(' y ') : 'múltiples categorías'
-  return `Mercado con ${viableCount} prospectos viables de ${totalCount} analizados (${pct}%), concentrados en ${topStr}, con un LTV promedio estimado de USD ${avgLtv}.`
+  const topCatStr = topCats.length ? topCats.slice(0, 2).join(' y ') : 'múltiples categorías'
+  const zoneStr = topZones.length ? `, predominantemente en ${topZones.slice(0, 2).join(' y ')}` : ''
+  return `Mercado con ${viableCount} prospectos viables de ${totalCount} analizados (${pct}%), concentrados en ${topCatStr}${zoneStr}, con un LTV promedio estimado de USD ${avgLtv}.`
 }
 
 function recommendedApproach(top, viables) {
@@ -86,7 +95,7 @@ function recommendedApproach(top, viables) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]
 }
 
-export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, productContext) {
+export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, productContext, queryContext = {}) {
   const insightByName = new Map()
   for (const ins of aiInsights || []) {
     if (ins?.business_name) insightByName.set(ins.business_name.toLowerCase(), ins)
@@ -110,14 +119,16 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
     const fallback = {
       business_name: b.name,
       pain_points: [
-        `Gestión operativa del negocio en ${b.category}`,
+        `Gestión operativa diaria de ${b.category}${b.zone ? ` en ${b.zone}` : ''}`,
         'Captación y retención de clientes',
         'Optimización de procesos comerciales',
       ],
       growth_signals: [],
       risk_flags: [],
       why_viable: `${b.name} encaja con ${productContext.name} por su perfil en ${b.category}.`,
-      opening_line: `Hola, vi el perfil de ${b.name}${b.rating ? ` con calificación ${b.rating}` : ''} y quería compartir algo que puede ayudarles.`,
+      opening_line: `Hola, vi el perfil de ${b.name}${b.rating ? ` con calificación ${b.rating}` : ''}${
+        b.zone ? ` en ${b.zone}` : ''
+      } y quería compartir algo que puede ayudarles.`,
       talk_track: [
         'Abrir con observación específica del negocio',
         'Identificar el dolor principal',
@@ -151,11 +162,32 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
       rank: idx + 1,
       business_name: b.name,
       category: b.category,
+      subcategory: b.subcategory,
+      location: {
+        zone: b.zone,
+        city: b.city,
+        country: b.country,
+        address: b.address,
+        latitude: b.latitude,
+        longitude: b.longitude,
+      },
       contact: {
         phone: b.phone,
+        whatsapp: b.whatsapp,
         email: b.email,
         website: b.website,
+        instagram: b.instagram,
+        facebook: b.facebook,
+        linkedin: b.linkedin,
+        tiktok: b.tiktok,
+        google_maps_url: b.google_maps_url,
       },
+      source: {
+        provider: b.source,
+        status: b.status,
+        google_place_id: b.google_place_id,
+      },
+      facade: b.facade || { description: null, features: [] },
       viability: {
         icp_score: b.viability.icp_score,
         priority: b.viability.priority,
@@ -166,6 +198,11 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
       business_intelligence: {
         estimated_size: estimateSize(b),
         digital_presence_score: digitalPresenceScore(b),
+        rating: b.rating,
+        ratings_count: b.ratings_count ?? b.reviews_count,
+        data_source: b.source || 'unknown',
+        enrichment_status: b.status || 'unknown',
+        facade_notes: b.facade?.description || b.notes || null,
         pain_points: ins.pain_points || fallback.pain_points,
         growth_signals: ins.growth_signals || fallback.growth_signals,
         risk_flags: ins.risk_flags || fallback.risk_flags,
@@ -195,7 +232,8 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
   const allScores = scoredBusinesses.map((b) => b.viability.icp_score)
   const viableLtvs = ranked.map((r) => r.marketing_metrics.estimated_ltv_usd)
   const viableCacs = ranked.map((r) => r.marketing_metrics.estimated_cac_usd)
-  const cats = topCategories(cleanedBusinesses, 3)
+  const cats = topByCount(cleanedBusinesses.map((b) => b.category), 3)
+  const zones = topByCount(cleanedBusinesses.map((b) => b.zone), 3)
 
   const market = {
     total_addressable_leads: ranked.length,
@@ -206,9 +244,11 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
       viableCount: ranked.length,
       totalCount: scoredBusinesses.length,
       topCats: cats,
+      topZones: zones,
       avgLtv: avg(viableLtvs),
     }),
     top_categories: cats,
+    top_zones: zones,
     recommended_approach: recommendedApproach(scoredBusinesses.slice(0, 10), ranked),
   }
 
@@ -218,8 +258,25 @@ export function buildReport(cleanedBusinesses, scoredBusinesses, aiInsights, pro
       viable_count: ranked.length,
       processing_timestamp: new Date().toISOString(),
       product_context_used: `${productContext.name} — ${productContext.description}`,
+      context: {
+        category: queryContext.category ?? null,
+        zone: queryContext.zone ?? null,
+        city: queryContext.city ?? null,
+        country: queryContext.country ?? null,
+        icp_description: queryContext.icp_description ?? null,
+      },
+      query: queryContext.query ?? null,
+      stats: queryContext.stats ?? null,
     },
     market_summary: market,
+    location_summary: buildLocationSummary(scoredBusinesses, {
+      query: queryContext.query,
+      stats: queryContext.stats,
+      category: queryContext.category,
+      zone: queryContext.zone,
+      city: queryContext.city,
+      country: queryContext.country,
+    }),
     ranked_prospects: ranked,
     non_viable: nonViable,
   }

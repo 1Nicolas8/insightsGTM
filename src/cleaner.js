@@ -41,36 +41,65 @@ function normalizeWebsite(value) {
   return null
 }
 
-function normalizeSocial(social) {
-  const base = { instagram: null, facebook: null, linkedin: null }
-  if (!social || typeof social !== 'object') return base
-  return {
-    instagram: safeString(social.instagram),
-    facebook: safeString(social.facebook),
-    linkedin: safeString(social.linkedin),
-  }
+function parseFacade(notes) {
+  if (!notes || typeof notes !== 'string') return { description: null, features: [] }
+  const trimmed = notes.trim()
+  if (!trimmed) return { description: null, features: [] }
+  const idx = trimmed.toLowerCase().indexOf('| features:')
+  if (idx === -1) return { description: trimmed, features: [] }
+  const description = trimmed.slice(0, idx).trim() || null
+  const featuresPart = trimmed.slice(idx + '| features:'.length)
+  const features = featuresPart
+    .split(/[;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+  return { description, features }
 }
 
 export function cleanBusiness(business) {
   if (!business || typeof business !== 'object') return null
 
+  const legacySocial = business.social_media || {}
+  const instagram = safeString(business.instagram ?? legacySocial.instagram)
+  const facebook = safeString(business.facebook ?? legacySocial.facebook)
+  const linkedin = safeString(business.linkedin ?? legacySocial.linkedin)
+  const tiktok = safeString(business.tiktok ?? legacySocial.tiktok)
+
+  const ratingsCount = toInt(business.ratings_count ?? business.reviews_count)
+  const facade = parseFacade(business.notes)
+
   const cleaned = {
     name: safeString(business.name),
     category: safeString(business.category),
     subcategory: safeString(business.subcategory),
-    address: safeString(business.address),
+    zone: safeString(business.zone),
     city: safeString(business.city),
     country: safeString(business.country),
+    address: safeString(business.address),
+    latitude: toFloat(business.latitude),
+    longitude: toFloat(business.longitude),
     phone: normalizePhone(business.phone),
-    website: normalizeWebsite(business.website),
+    whatsapp: normalizePhone(business.whatsapp),
     email: safeString(business.email),
+    website: normalizeWebsite(business.website),
+    instagram,
+    facebook,
+    linkedin,
+    tiktok,
+    google_place_id: safeString(business.google_place_id),
+    google_maps_url: safeString(business.google_maps_url),
     rating: toFloat(business.rating),
-    reviews_count: toInt(business.reviews_count),
+    ratings_count: ratingsCount,
+    reviews_count: ratingsCount,
     price_level: toInt(business.price_level),
-    hours: safeString(business.hours),
     photos_count: toInt(business.photos_count),
+    hours: safeString(business.hours),
     verified: toBool(business.verified),
-    social_media: normalizeSocial(business.social_media),
+    source: safeString(business.source),
+    status: safeString(business.status),
+    notes: safeString(business.notes),
+    facade,
+    social_media: { instagram, facebook, linkedin, tiktok },
   }
 
   if (cleaned.rating !== null) {

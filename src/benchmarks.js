@@ -18,6 +18,11 @@ export const BENCHMARKS = {
   contable: { acv_min: 300, acv_max: 900, acl_min: 24, acl_max: 48, cac_min: 150, cac_max: 450 },
   construcción: { acv_min: 600, acv_max: 3000, acl_min: 6, acl_max: 18, cac_min: 300, cac_max: 1000 },
   tecnología: { acv_min: 400, acv_max: 2000, acl_min: 12, acl_max: 36, cac_min: 200, cac_max: 700 },
+  barbería: { acv_min: 60, acv_max: 250, acl_min: 12, acl_max: 36, cac_min: 40, cac_max: 180 },
+  barber: { acv_min: 60, acv_max: 250, acl_min: 12, acl_max: 36, cac_min: 40, cac_max: 180 },
+  peluquería: { acv_min: 60, acv_max: 250, acl_min: 12, acl_max: 36, cac_min: 40, cac_max: 180 },
+  estética: { acv_min: 100, acv_max: 350, acl_min: 12, acl_max: 30, cac_min: 60, cac_max: 220 },
+  spa: { acv_min: 150, acv_max: 450, acl_min: 12, acl_max: 30, cac_min: 80, cac_max: 250 },
   default: { acv_min: 200, acv_max: 500, acl_min: 12, acl_max: 18, cac_min: 150, cac_max: 350 },
 }
 

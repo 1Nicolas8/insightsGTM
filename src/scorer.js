@@ -4,7 +4,7 @@ import { estimateMetrics } from './formulas.js'
 const STOP_WORDS = new Set([
   'de', 'la', 'el', 'los', 'las', 'y', 'o', 'u', 'en', 'para', 'por', 'con',
   'a', 'al', 'del', 'un', 'una', 'unos', 'unas', 'que', 'como', 'sus', 'su',
-  'b2b', 'b2c', 'servicios', 'servicio', 'sector', 'industria',
+  'b2b', 'b2c', 'servicios', 'servicio', 'sector', 'industria', 'sas', 'saas',
 ])
 
 function tokens(text) {
@@ -13,8 +13,16 @@ function tokens(text) {
     .filter((t) => t && t.length > 2 && !STOP_WORDS.has(t))
 }
 
+function hasAnySocial(business) {
+  const sm = business.social_media || {}
+  return Boolean(
+    business.instagram || business.facebook || business.linkedin || business.tiktok ||
+      sm.instagram || sm.facebook || sm.linkedin || sm.tiktok
+  )
+}
+
 function sizeScore(business) {
-  const reviews = business.reviews_count ?? 0
+  const reviews = business.reviews_count ?? business.ratings_count ?? 0
   let score
   if (reviews >= 500) score = 20
   else if (reviews >= 100) score = 14
@@ -24,6 +32,10 @@ function sizeScore(business) {
   if (business.verified === true) score += 2
   if ((business.price_level ?? 0) >= 3) score += 3
   if ((business.photos_count ?? 0) > 20) score += 1
+
+  if (business.facade && Array.isArray(business.facade.features) && business.facade.features.length >= 5) {
+    score += 1
+  }
 
   return Math.max(0, Math.min(25, score))
 }
@@ -38,12 +50,12 @@ function intentScore(business) {
   else score = 3
 
   if (business.website) score += 5
-
-  const sm = business.social_media || {}
-  if (sm.instagram || sm.facebook || sm.linkedin) score += 3
-
+  if (hasAnySocial(business)) score += 3
   if (business.hours) score += 2
   if (business.email) score += 3
+
+  if (business.whatsapp && !business.email) score += 1
+  if (business.google_maps_url) score += 1
 
   return Math.max(0, Math.min(25, score))
 }
@@ -57,7 +69,7 @@ function fitScore(business, productContext) {
   if (!targetTokens.length || !haystack) return 5
 
   const targetFull = normalize(productContext.target_industry)
-  if (catNorm && (targetFull.includes(catNorm) || catNorm.includes(targetFull.split(/[,\s]+/)[0] || ''))) {
+  if (catNorm && (targetFull === catNorm || targetFull.includes(catNorm) || catNorm.includes(targetFull))) {
     return 25
   }
 
@@ -80,12 +92,14 @@ function fitScore(business, productContext) {
     tecnologia: ['software', 'sistemas', 'desarrollo', 'it', 'startup'],
     educacion: ['academia', 'instituto', 'colegio', 'universidad', 'curso'],
     inmobiliaria: ['bienes', 'raices', 'propiedad', 'construccion'],
+    barberia: ['peluqueria', 'barber', 'estetica', 'estilist'],
+    peluqueria: ['barberia', 'estetica', 'estilist'],
   }
 
   for (const t of targetTokens) {
     const related = RELATED[t] || []
     for (const r of related) {
-      if (haystack.includes(r)) return 10
+      if (haystack.includes(r)) return 12
     }
   }
 
