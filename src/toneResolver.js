@@ -14,12 +14,15 @@ function detectTone(business, icp_score) {
   const formalKeys = ['juridico', 'legal', 'contable', 'contador', 'financiero', 'finanzas', 'salud', 'clinica', 'medico', 'hospital']
   const directKeys = ['agencia', 'marketing', 'consultor', 'tecnologia', 'software', 'startup']
   const educationKeys = ['educacion', 'academia', 'instituto', 'colegio', 'universidad']
+  const cercanoKeys = ['barberia', 'peluqueria', 'estetica', 'spa', 'cafe', 'restaurante', 'tienda', 'barber']
 
   if (formalKeys.some((k) => cat.includes(k))) return 'formal'
   if (directKeys.some((k) => cat.includes(k))) return 'directo'
   if (educationKeys.some((k) => cat.includes(k))) return 'educativo'
 
   if (icp_score >= 70 && business.website) return 'consultivo'
+
+  if (cercanoKeys.some((k) => cat.includes(k))) return 'cercano'
 
   const sizeScore = business.viability?.score_breakdown?.size_score
   if ((typeof sizeScore === 'number' && sizeScore <= 8) || !business.website) return 'cercano'
@@ -36,9 +39,14 @@ function isColombianPhone(phone) {
 }
 
 function detectChannel(business, tone) {
-  const social = business.social_media || {}
+  const sm = business.social_media || {}
+  const linkedin = business.linkedin || sm.linkedin
+  const instagram = business.instagram || sm.instagram
+  const facebook = business.facebook || sm.facebook
+  const tiktok = business.tiktok || sm.tiktok
 
-  if (social.linkedin) return 'linkedin'
+  if (business.whatsapp) return 'whatsapp'
+  if (linkedin) return 'linkedin'
   if (business.email && (tone === 'formal' || tone === 'directo')) return 'email'
   if (business.phone) {
     if (isColombianPhone(business.phone) && (tone === 'cercano' || tone === 'educativo')) {
@@ -46,8 +54,8 @@ function detectChannel(business, tone) {
     }
     return 'cold_call'
   }
-  if (isColombianPhone(business.phone)) return 'whatsapp'
-  if (!business.phone && !business.email && !social.linkedin) return 'presencial'
+  if (business.email) return 'email'
+  if (instagram || facebook || tiktok) return 'whatsapp'
   return 'presencial'
 }
 
